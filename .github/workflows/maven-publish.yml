@@ -5,6 +5,11 @@ name: Maven Package
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -36,6 +41,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Publish to GitHub Packages Apache Maven
-        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
+        if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/master')
+        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml --batch-mode
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
