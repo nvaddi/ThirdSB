@@ -1,5 +1,5 @@
-# This workflow will build a package using Maven and then publish it to GitHub packages when a release is created
-# For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#apache-maven-with-a-settings-path
+# Build Maven artifacts and publish immutable release versions to GitHub Packages.
+# Release tags may be written as either 1.2.3 or v1.2.3.
 
 name: Maven Package
 
@@ -22,6 +22,7 @@ jobs:
       - name: Check out repository and fetch all branches
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -37,11 +38,26 @@ jobs:
           server-id: github
           settings-path: ${{ github.workspace }}
 
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
+      - name: Set release version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag '$RELEASE_TAG' is not a supported Maven version. Use a tag such as v1.2.3 or 1.2.3."
+            exit 1
+          fi
+          mvn --batch-mode versions:set \
+            -DnewVersion="$VERSION" \
+            -DgenerateBackupPoms=false
+          echo "Publishing Maven version $VERSION"
 
-      - name: Publish to GitHub Packages Apache Maven
-        if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/master')
-        run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml --batch-mode
+      - name: Build with Maven
+        run: mvn --batch-mode package --file pom.xml
+
+      - name: Publish release to GitHub Packages
+        if: github.event_name == 'release'
+        run: mvn --batch-mode deploy -s "$GITHUB_WORKSPACE/settings.xml" --file pom.xml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
