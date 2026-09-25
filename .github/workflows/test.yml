@@ -2,13 +2,28 @@ name: Java CI
 
 on:
   workflow_dispatch:
-  #   branches: [ master ]
-  # pull_request:
-  #   branches: [ master ]
+    inputs:
+      branch:
+        description: Select the branch to test
+        type: choice
+        required: true
+        default: master
+        options:
+          - master
+          - test-branch
+      runner:
+        description: Select the runner label
+        type: choice
+        required: true
+        default: ubuntu-latest
+        options:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - windows-latest
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{inputs.runner}}
 
     steps:
       - name: Check out code
